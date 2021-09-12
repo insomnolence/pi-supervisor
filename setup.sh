@@ -7,7 +7,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q 
 apt-get full-upgrade -qy
-apt-get install -qy hostapd dnsmasq
+apt-get install -qy hostapd dnsmasq python-rpi.gpio python3-rpi.gpio
 
 # Radio management
 rfkill unblock wlan

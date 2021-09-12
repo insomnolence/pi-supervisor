@@ -14,5 +14,5 @@ if ip link ls up | grep -q 'uap0' &> /dev/null; then
 fi
 
 # remove the captive portal thing
-iptables -t nat -A PREROUTING -F
+iptables -t nat -F PREROUTING
 
