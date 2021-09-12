@@ -1,0 +1,3 @@
+# SUDOERS file for this script. Goes in /etc/sudoers.d/
+
+supervisor ALL=(ALL) NOPASSWD: /usr/lib/supervisor/scripts

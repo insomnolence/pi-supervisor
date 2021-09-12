@@ -1,0 +1,15 @@
+[Unit]
+Description=RPi Supervisor
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=supervison
+ExecStart=/usr/bin/python3 /usr/local/lib/supervisor/supervisor.py
+WorkingDirectory=/usr/local/lib/supervisor
+
+[Install]
+WantedBy=multi-user.target
