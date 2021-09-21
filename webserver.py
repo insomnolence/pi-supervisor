@@ -27,7 +27,7 @@ class WebServer:
         if raw_data is not None:
             data = yaml.load(raw_data, Loader=yaml.FullLoader)
             # Replace the wifi with new data.
-            new_config = {'wlan0': {'access-points' : {ssid : {'password' : password } } } }
+            new_config = {'wifis' : {'wlan0': {'access-points' : {ssid : {'password' : password } } } } }
             data['network']['wifis'] = new_config
             
             # convert to sting in yaml format
@@ -76,7 +76,7 @@ class WebServer:
 
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
-        self.site = web.TCPSite(self.runner, None, 80)
+        self.site = web.TCPSite(self.runner, None, 8000)
 
         while True:
 

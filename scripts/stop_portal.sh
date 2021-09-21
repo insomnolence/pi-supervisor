@@ -8,6 +8,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 systemctl stop hostapd.service
 systemctl stop dnsmasq.service
 
+sleep 2
+
 # remove the interface
 if ip link ls up | grep -q 'uap0' &> /dev/null; then
     iw dev uap0 del
