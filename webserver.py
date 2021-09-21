@@ -1,6 +1,7 @@
 import asyncio
 import aiofiles
 from aiohttp import web
+import yaml
 
 WAIT_TIME_SECONDS = .25
 
@@ -17,6 +18,28 @@ class WebServer:
         self.runner = None
         self.app = web.Application()
         self.site = None
+
+    async def write_config(self, ssid, password):
+        raw_data = None
+        async with aiofiles.open('/etc/netplan/50-cloud-init.yaml') as f:
+            raw_data = await f.read()
+        
+        if raw_data is not None:
+            data = yaml.load(raw_data, Loader=yaml.FullLoader)
+            # Replace the wifi with new data.
+            new_config = {'wlan0': {'access-points' : {ssid : {'password' : password } } } }
+            data['network']['wifis'] = new_config
+            
+            # convert to sting in yaml format
+            output = yaml.dump(data)
+            # Now fix quotes
+            output = output.replace(ssid, '"{}"'.format(ssid))
+            output = output.replace(password, '"{}"'.format(password))
+
+            # write out to file
+            async with aiofiles.open('/etc/netplan/50-cloud-init.yaml', mode='w') as f:
+                await f.write(output)
+
 
     async def html_format(self, file_name):
         try:
@@ -39,7 +62,8 @@ class WebServer:
             passwd = form['password']
 
             if ssid != '':
-                # Set the ssid here
+                # Set the ssid here or move this to event_processor ?
+                await self.write_config(ssid, passwd)
                 print('TBD, set the net config !')
                 await self.to_processor_queue.put('success')
 
@@ -53,7 +77,6 @@ class WebServer:
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, None, 80)
-        #await self.site.start()
 
         while True:
 
