@@ -1,73 +1,72 @@
-import time
-from datetime import timedelta
-import subprocess
-import threading, time, signal
-import display
-import os
-import json
-import datetime
+
+import asyncio
+from event_processor import Event_Processor
+import led
 import button
+import signal
+import webserver
+
+ButtonPin = 13
+LedPin = 21
+
 WAIT_TIME_SECONDS = .25
 
-def buttonDaemon():
-    buttonState = button.checkButton()
-    if buttonState == 1:
-        display.displayStatus("Button Pressed")
-        button.setLED(1)
-        time.sleep(2)
-        display.clear()
-    elif buttonState == 2:
-        display.displayStatus("Long Pressed")
-        button.setLED(3)
-        time.sleep(2)
-        display.clear()
+def main():
 
-def ledDaemon():
-    button.runLED()
+    loop = asyncio.get_event_loop()
 
-class ProgramKilled(Exception):
-    pass
+    # Define signals to track for shutdown
+    signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+    for s in signals:
+        loop.add_signal_handler(
+            s, lambda s=s: asyncio.create_task(shutdown(s, loop)))
 
-class Job(threading.Thread):
-    def __init__(self, interval, execute, *args, **kwargs):
-        threading.Thread.__init__(self)
-        self.daemon = False
-        self.stopped = threading.Event()
-        self.interval = interval
-        self.execute = execute
-        self.args = args
-        self.kwargs = kwargs
-        
-    def stop(self):
-                self.stopped.set()
-                self.join()
-    def run(self):
-            while not self.stopped.wait(self.interval.total_seconds()):
-                self.execute(*self.args, **self.kwargs)
+    # Define Queues needed for communication
+    from_button_queue = asyncio.Queue()
+    from_server_queue = asyncio.Queue()
+    to_server_queue = asyncio.Queue()
+    to_led_queue = asyncio.Queue()
 
+    queues = (from_button_queue, from_server_queue, to_server_queue, to_led_queue)
 
-def signal_handler(signum, frame):
-    raise ProgramKilled
+    # Define the Hardware being used.
+    # Put theses in tasks as need be    
+    button_1 = button.create_button(ButtonPin, 'Timed', from_button_queue)
+    led_1 = led.create_led(LedPin, 1, to_led_queue)
 
-def startWebServer(port=8000):
-    pass
+    # Define the Event Processor
+    event_processor = Event_Processor(queues)
+    
+    # Define the Web Server. It won't automatically create unless 
+    # it is told to.
+    web_server = webserver.create_server(from_server_queue, to_server_queue) 
+
+    try:
+        loop.create_task(button_1.check_button())
+        loop.create_task(led_1.run_led())
+        loop.create_task(event_processor.process_events())
+        loop.create_task(web_server.watcher())
+
+        loop.run_forever()
+            
+    finally:
+        loop.close()
+        print('Shutdown the Supervisor')
+
+async def shutdown(signal, loop):
+    # Cleanup tasks tied to the service's shutdown
+    print('Received exit signal {}'.format(signal.name))
+    tasks = [ t for t in asyncio.all_tasks() if t is not \
+        asyncio.current_task()]
+
+    [task.cancel() for task in tasks]
+
+    print('Cancelling {} outstanding tasks.'.format(len(tasks)))
+
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    loop.stop()
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    buttonJob = Job(interval=timedelta(seconds=WAIT_TIME_SECONDS), execute=buttonDaemon)
-    buttonJob.start()
-    ledJob = Job(interval=timedelta(seconds=WAIT_TIME_SECONDS), execute=ledDaemon)
-    ledJob.start()
-    button.setLED(2)
 
-    while True:
-          try:
-              time.sleep(1)
-          except ProgramKilled:
-              print ("Program killed: running cleanup code")
-              buttonJob.stop()
-              ledJob.stop()
-              display.clear()
-              button.setLED(False)
-              break
+    main()
