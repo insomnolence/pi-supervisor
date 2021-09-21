@@ -1,17 +1,20 @@
 
 import asyncio
 from event_processor import Event_Processor
-import led
-import button
+#import led
+#import button
+from led import Led
+from button import Button, create_button
 import signal
-import webserver
+#import webserver
+from webserver import WebServer
 
 ButtonPin = 13
 LedPin = 21
 
 WAIT_TIME_SECONDS = .25
 
-def main():
+def init_main():
 
     loop = asyncio.get_event_loop()
 
@@ -31,21 +34,21 @@ def main():
 
     # Define the Hardware being used.
     # Put theses in tasks as need be    
-    button_1 = button.create_button(ButtonPin, 'Timed', from_button_queue)
-    led_1 = led.create_led(LedPin, 1, to_led_queue)
+    button_1 = Button(ButtonPin, 'Timed', from_button_queue)
+    led_1 = Led(LedPin, 1, to_led_queue)
 
     # Define the Event Processor
     event_processor = Event_Processor(queues)
     
     # Define the Web Server. It won't automatically create unless 
     # it is told to.
-    web_server = webserver.create_server(from_server_queue, to_server_queue) 
+    web_server = WebServer(from_server_queue, to_server_queue) 
 
     try:
         loop.create_task(button_1.check_button())
         loop.create_task(led_1.run_led())
-        loop.create_task(event_processor.process_events())
-        loop.create_task(web_server.watcher())
+        loop.create_task(event_processor.run())
+        loop.create_task(web_server._init())
 
         loop.run_forever()
             
@@ -69,4 +72,4 @@ async def shutdown(signal, loop):
 
 if __name__ == "__main__":
 
-    main()
+    init_main()

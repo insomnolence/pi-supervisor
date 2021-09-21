@@ -12,11 +12,6 @@ import RPi.GPIO as GPIO
 import asyncio
 
 
-async def create_button(pin, mode, button_queue):
-    button = Button(pin, mode, button_queue)
-    await button._init()
-    return button
-
 class Button(object):
     def __init__(self, pin, mode, button_queue: asyncio.Queue):
         self.button_pin = pin
@@ -32,10 +27,15 @@ class Button(object):
         
 
     async def check_button(self):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, GPIO.setmode, GPIO.BCM) #(GPIO.BCM)) # Maybe Put this elsewhere
+        await loop.run_in_executor(None, GPIO.setup, self.button_pin, GPIO.IN, GPIO.PUD_UP) #(self.button_pin, \
+            #GPIO.IN, pull_up_down=GPIO.PUD_UP))
+
         while True:
             loop = asyncio.get_event_loop()
             pushed_length = 0
-            while await loop.run_in_executor(None, GPIO.input(self.button_pin)) == GPIO.LOW:
+            while await loop.run_in_executor(None, GPIO.input, self.button_pin) == GPIO.LOW: #(self.button_pin)) == GPIO.LOW:
                 pushed_length += 1
                 asyncio.sleep(self.scan_time)
                 if pushed_length > 30/self.scan_time:
@@ -50,3 +50,11 @@ class Button(object):
                 await self.button_queue.put(2)
             else:
                 await self.button_queue.put(3)
+
+
+async def create_button(pin, mode, button_queue) -> Button:
+    button = Button(pin, mode, button_queue)
+    await button._init()
+    return button
+
+

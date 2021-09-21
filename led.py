@@ -18,10 +18,12 @@ async def create_led(pin, state, led_queue ):
 
 class Led(object):
     def __init__(self, pin, state, led_queue: asyncio.Queue):
-        self.pin = pin
-        self.pin = state
+        self.led_pin = pin
+        self.state = state
         self.led_requested = 0 # 0: off 1: on 2: blink slow 3: blink fast
         self.led_queue = led_queue
+        self.fast_time = 1
+        self.slow_time = 5
 
     async def _init(self):
         loop = asyncio.get_event_loop()
@@ -40,6 +42,10 @@ class Led(object):
         await loop.run_in_executor(None, GPIO.output(self.led_pin, self.led_state) )
 
     async def run_led(self):
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, GPIO.setup, self.led_pin, GPIO.OUT) #(self.led_pin, GPIO.OUT))
+
         while True:
 
             if not self.led_queue.empty():
@@ -49,15 +55,15 @@ class Led(object):
 
             if self.led_requested == 2:
                 await self.set_led_state(not self.led_state)
-                asyncio.sleep(self.slow_time)
+                await asyncio.sleep(self.slow_time)
             
             elif self.led_requested == 3:
                 await self.set_led_state(not self.led_state)
-                asyncio.sleep(self.fast_time)
+                await asyncio.sleep(self.fast_time)
             
             else:
                 # Do nothing here as it's either on or off. wait for fast time
                 # before checking again
-                asyncio.sleep(self.fast_time)
+                await asyncio.sleep(self.fast_time)
                  
         

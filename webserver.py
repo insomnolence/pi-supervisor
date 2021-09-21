@@ -1,4 +1,5 @@
 import asyncio
+import aiofiles
 from aiohttp import web
 
 WAIT_TIME_SECONDS = .25
@@ -10,24 +11,25 @@ async def create_server(from_server_queue, to_server_queue):
 class WebServer:
     def __init__(self, from_server_queue, to_server_queue):
         # whatever the path is.
-        self.path = '/usr/local/lib/supervisor/templates'
+        self.path = '/usr/local/lib/supervisor/templates/'
         self.to_processor_queue = from_server_queue
         self.from_processor_queue = to_server_queue
         self.runner = None
         self.app = web.Application()
         self.site = None
 
-    async def html_format(file_name):
+    async def html_format(self, file_name):
         try:
-            async with open(file_name) as f:
-                index = f.read()
+            async with aiofiles.open(self.path+file_name) as f:
+                index = await f.read()
                 return index
-        except:
-            return 'File error when opening {} to serve html'.format(file_name)
+        except Exception as e:
+           print(e)
+           return 'File error when opening {} to serve html'.format(file_name)
 
     async def handle_ssid(self, request):
         response = await self.html_format('index.html')
-        return web.Response(response, content='text/html')
+        return web.Response(text=response, content_type='text/html')
 
     async def handle_ssid_post(self, request):
         if request.method == 'POST':
@@ -51,7 +53,7 @@ class WebServer:
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, None, 80)
-        await self.site.start()
+        #await self.site.start()
 
         while True:
 
