@@ -67,8 +67,7 @@ class Event_Processor(object):
                     self.running_webservice = True
                      # Let the webservice know it needs to start up and 
                     # process the ssid info.
-                    process = await asyncio.create_subprocess_shell('/usr/local/lib/supervisor/start_portal.sh', \
-                        stdin = PIPE, stdout = PIPE, stderr = STDOUT)
+                    process = await asyncio.create_subprocess_shell('/usr/local/lib/supervisor/scripts/start_portal.sh', stdin = PIPE, stdout = PIPE, stderr = STDOUT)
                     await process.wait()
 
                     await self.web_to_queue.put('start')
@@ -100,7 +99,7 @@ class Event_Processor(object):
                 info = await self.web_from_queue.get()
                 if info == 'success':
                     # configured properly. Stop the portal and bounce the net connection.
-                    process = await asyncio.create_subprocess_shell('/usr/local/lib/supervisor/stop_portal.sh', stdin = PIPE, stdout = PIPE, stderr = STDOUT)
+                    process = await asyncio.create_subprocess_shell('/usr/local/lib/supervisor/scripts/stop_portal.sh', stdin = PIPE, stdout = PIPE, stderr = STDOUT)
                     await process.wait()
 
                     # bounce the net connection
