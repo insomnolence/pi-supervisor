@@ -1,4 +1,5 @@
 import sys
+from async_call import async_call
 
 fakeHardware = False
 try:
@@ -11,51 +12,67 @@ except:
     print("[Warn] unable to load hardware libraries for SSD1306, and starting in simulation mode", file = sys.stderr)
     fakeHardware = True
 
-def clear():
-    disp.clear()
-    disp.display()
+class Display(object):
+    def __init__(self, external_display, enable_stdout):
+        self.display = None
+        self.display_exists = external_display
+        self.stdout_enabled = enable_stdout
+        self.draw = None
+        self.width = 0
+        self.height = 0
+        self.padding = 0
+        self.font = None
+        self.image = None
 
-def displayStatus(message):
-    if (fakeHardware):
-        print(message)
-        return
-    
-    top = 0
-    # clear the canvas
-    draw.rectangle((0,0,width,height), outline=0, fill=0)
+    async def setup(self):
+        if self.display_exists:
+            # Setup the 128x32 OLED screen via I2C
+            self.display = await async_call(Adafruit_SSD1306.SSD1306_128_32)(rst=None)
+            await async_call(self.display.begin)()
+            await async_call(self.display.clear)()
+            await async_call(self.display.display)()
+            self.width = self.display.width
+            self.height = self.display.height
+            self.image = await async_call(Image.new)('1', (self.width, self.height))
 
-    # # make the numbers pretty
-    # Temp = str(round(temperature, 1)) + '°C ' + \
-    #     str(round(humidity,1)) + '%'
-    # Write two lines of text.
-    # (topWidth, topHeight) = bigFont.getsize(Temp)
-    # left = (width - topWidth)/2
-    # draw.text((left, top), Temp, font=bigFont, fill=255)
-    # top += bigFontSize + padding
-    draw.text((0, top), message, font=font, fill=255)
+            # init canvas
+            self.draw = await async_call(ImageDraw.Draw)(self.image)
+            await async_call(self.draw.rectangle)((0,0,self.width,self.height), outline=0, fill=0)
 
-    # Display image.
-    disp.image(image)
-    disp.display()
+            # define some constants to allow easy resizing of shapes.
+            self.padding = 0
 
-if (not fakeHardware):
-    # Setup the 128x32 OLED screen via I2C
-    disp = Adafruit_SSD1306.SSD1306_128_32(rst=None)
-    disp.begin()
-    disp.clear()
-    disp.display()
-    width = disp.width
-    height = disp.height
-    image = Image.new('1', (width, height))
+            # Load fonts
+            self.font = await async_call(ImageFont.load_default)()
+            # bigFontSize = 20
+            # bigFont = ImageFont.truetype('zrnic.ttf', bigFontSize)
 
-    # init canvas
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((0,0,width,height), outline=0, fill=0)
+    async def clear(self):
+        await async_call(self.display.clear)()
+        await async_call(self.display.display)()
 
-    # define some constants to allow easy resizing of shapes.
-    padding = 0
+    async def message(self, message):
+        if not self.display_exists or self.stdout_enabled:
+            print(message)
 
-    # Load fonts
-    font = ImageFont.load_default()
-    # bigFontSize = 20
-    # bigFont = ImageFont.truetype('zrnic.ttf', bigFontSize)
+            if not self.display_exists:
+                return
+        
+        top = 0
+        # clear the canvas
+        await async_call(self.draw.rectangle)((0,0,self.width,self.height), outline=0, fill=0)
+
+        # # make the numbers pretty
+        # Temp = str(round(temperature, 1)) + '°C ' + \
+        #     str(round(humidity,1)) + '%'
+        # Write two lines of text.
+        # (topWidth, topHeight) = bigFont.getsize(Temp)
+        # left = (width - topWidth)/2
+        # draw.text((left, top), Temp, font=bigFont, fill=255)
+        # top += bigFontSize + padding
+        await async_call(self.draw.text)((0, top), message, font=self.font, fill=255)
+
+        # Display image.
+        await async_call(self.display.image)(self.image)
+        await async_call(self.display.display)()
+

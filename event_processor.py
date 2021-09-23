@@ -1,5 +1,6 @@
 import asyncio
 from asyncio.subprocess import PIPE, STDOUT
+from display import Display
 
 WAIT_TIME_SECONDS = .25
 
@@ -13,6 +14,7 @@ class Event_Processor(object):
         self.web_from_queue = list_of_queues[1]
         self.web_to_queue = list_of_queues[2]
         self.led_queue = list_of_queues[3]
+        self.display = None
 
     async def check_wifi_services(self):
         #  write script to check wifi
@@ -32,7 +34,7 @@ class Event_Processor(object):
                     tmp = line.split(':')
                     if len(tmp) > 1:
                         
-                        print('Connected to WiFi {}'.format(tmp[1]))
+                        await self.display.message('Connected to WiFi: \n{}'.format(tmp[1]))
                         return True
                     else:
                         print('Error receiving data? {} '.format(tmp))
@@ -43,6 +45,19 @@ class Event_Processor(object):
         return False
 
     async def run(self):
+
+        # Setup the Display here. The Event Processor will have the full
+        # picture on what's going on, therefore, it will be displaying 
+        # the neccesary messages.
+
+        # TBD -> Put these in a config file ?
+        has_external_display = True
+        print_to_stdout = True
+
+        self.display = Display(has_external_display, print_to_stdout)
+        await self.display.setup()
+        await self.display.clear()
+
         while True:
 
             if  not self.wifi_connected and not self.wifi_configuring:
@@ -57,6 +72,7 @@ class Event_Processor(object):
                     await process.wait()
 
                     await self.web_to_queue.put('start')
+                    await self.display.message('Look for SSID: SetMeUp \nto configure device.')
             
                 else:
                     self.wifi_connected = True
@@ -93,6 +109,7 @@ class Event_Processor(object):
                     await process.wait()
                     await self.web_to_queue.put('stop')
                     # Give the system time to connect
+                    await self.display.clear()
                     await asyncio.sleep(5)
                     self.wifi_configuring = False
                     self.wifi_connected = False
