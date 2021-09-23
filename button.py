@@ -10,6 +10,7 @@
 
 import RPi.GPIO as GPIO
 import asyncio
+from async_call import async_call
 
 
 class Button(object):
@@ -19,23 +20,14 @@ class Button(object):
         self.scan_time = .05 # 50ms untis of being held down. must be held down for at least 50ms
         self.button_queue = button_queue
 
-    async def _init(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, GPIO.setmode(GPIO.BCM)) # Maybe Put this elsewhere
-        await loop.run_in_executor(None, GPIO.setup(self.button_pin, \
-            GPIO.IN, pull_up_down=GPIO.PUD_UP))
-        
 
     async def check_button(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, GPIO.setmode, GPIO.BCM) #(GPIO.BCM)) # Maybe Put this elsewhere
-        await loop.run_in_executor(None, GPIO.setup, self.button_pin, GPIO.IN, GPIO.PUD_UP) #(self.button_pin, \
-            #GPIO.IN, pull_up_down=GPIO.PUD_UP))
+        await async_call(GPIO.setmode)(GPIO.BCM)
+        await async_call(GPIO.setup)(self.button_pin, GPIO.IN, GPIO.PUD_UP)
 
         while True:
-            loop = asyncio.get_event_loop()
             pushed_length = 0
-            while await loop.run_in_executor(None, GPIO.input, self.button_pin) == GPIO.LOW: #(self.button_pin)) == GPIO.LOW:
+            while await async_call(GPIO.input)(self.button_pin) == GPIO.LOW: 
                 pushed_length += 1
                 asyncio.sleep(self.scan_time)
                 if pushed_length > 30/self.scan_time:

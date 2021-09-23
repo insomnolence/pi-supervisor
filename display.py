@@ -1,4 +1,5 @@
 import sys
+import asyncio
 from async_call import async_call
 
 fakeHardware = False
@@ -11,8 +12,20 @@ try:
 except:
     print("[Warn] unable to load hardware libraries for SSD1306, and starting in simulation mode", file = sys.stderr)
     fakeHardware = True
+class Timer:
+    def __init__(self, timeout, callback):
+        self.timeout = timeout
+        self.callback = callback
+        self.task = asyncio.ensure_future(self._job())
 
+    async def _job(self):
+        await asyncio.sleep(self.timeout)
+        await self.callback()
+
+    async def cancel(self):
+        self.task.cancel()
 class Display(object):
+
     def __init__(self, external_display, enable_stdout):
         self.display = None
         self.display_exists = external_display
@@ -23,6 +36,7 @@ class Display(object):
         self.padding = 0
         self.font = None
         self.image = None
+        self.timer = None
 
     async def setup(self):
         if self.display_exists:
@@ -47,9 +61,19 @@ class Display(object):
             # bigFontSize = 20
             # bigFont = ImageFont.truetype('zrnic.ttf', bigFontSize)
 
-    async def clear(self):
+    async def _clear(self):
         await async_call(self.display.clear)()
         await async_call(self.display.display)()
+
+        if self.timer is not None:
+            self.timer = None
+
+    async def clear(self):
+        if self.timer is not None:
+            await self.timer.cancel()
+            self.timer = None
+
+        await self._clear()
 
     async def message(self, message):
         if not self.display_exists or self.stdout_enabled:
@@ -57,7 +81,13 @@ class Display(object):
 
             if not self.display_exists:
                 return
-        
+
+        # If there is a timeout currently, cancel it as a new message
+        # is going to be written
+        if self.timer is not None:
+            await self.timer.cancel()
+            self.timer = None
+
         top = 0
         # clear the canvas
         await async_call(self.draw.rectangle)((0,0,self.width,self.height), outline=0, fill=0)
@@ -76,3 +106,5 @@ class Display(object):
         await async_call(self.display.image)(self.image)
         await async_call(self.display.display)()
 
+        # Set a timeout for the message to be cleared.
+        self.timer = Timer(3600, self._clear)
